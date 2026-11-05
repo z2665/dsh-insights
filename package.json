@@ -30,6 +30,15 @@
     "session-analysis",
     "agents-md"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/z2665/dsh-insights.git"
+  },
+  "homepage": "https://github.com/z2665/dsh-insights#readme",
+  "bugs": {
+    "url": "https://github.com/z2665/dsh-insights/issues"
+  },
+  "author": "z2665",
   "engines": {
     "node": ">=22.15"
   },
