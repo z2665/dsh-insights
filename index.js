@@ -71,6 +71,56 @@ function timezone() {
   }
 }
 
+const FACET_TTL_MS = 30 * 86_400_000
+const FACET_MAX_FILES = 400
+
+/**
+ * Bound the facet cache so repeated runs cannot grow it without limit: an
+ * entry outside the current window is dropped once it ages out, and the
+ * directory never keeps more than a fixed number of files. The report itself
+ * is always the same single file.
+ */
+function pruneCache(reportDir, sessions) {
+  const dir = path.join(reportDir, 'facets')
+  const current = new Set(sessions.map((session) => `${session.id}.json`))
+  const now = Date.now()
+  let names = []
+  try {
+    names = fs.readdirSync(dir)
+  } catch {
+    return
+  }
+  const kept = []
+  for (const name of names) {
+    if (!name.endsWith('.json')) continue
+    const file = path.join(dir, name)
+    let stat
+    try {
+      stat = fs.statSync(file)
+    } catch {
+      continue
+    }
+    if (!current.has(name) && now - stat.mtimeMs > FACET_TTL_MS) {
+      try {
+        fs.rmSync(file, { force: true })
+      } catch {
+        // cache pruning is best effort
+      }
+      continue
+    }
+    kept.push({ file, mtime: stat.mtimeMs })
+  }
+  if (kept.length <= FACET_MAX_FILES) return
+  kept.sort((a, b) => a.mtime - b.mtime)
+  for (const item of kept.slice(0, kept.length - FACET_MAX_FILES)) {
+    try {
+      fs.rmSync(item.file, { force: true })
+    } catch {
+      // cache pruning is best effort
+    }
+  }
+}
+
 function resolveModel(ctx, options) {
   if (options.model) return options.model
   try {
@@ -181,10 +231,19 @@ export function apply(ctx, config) {
 
     const html = renderReport(data)
     await fs.promises.mkdir(reportDir, { recursive: true })
-    const temporary = `${reportFile}.${process.pid}.tmp`
-    await fs.promises.writeFile(temporary, html, 'utf8')
-    await fs.promises.rename(temporary, reportFile)
-    if (data.sessions.length > 0) writeRunSnapshot(reportDir, data)
+    // One report file, always replaced: a fixed temporary name plus a rename
+    // keeps the published file consistent and leaves no numbered copies behind.
+    const temporary = path.join(reportDir, '.report.html.tmp')
+    try {
+      await fs.promises.writeFile(temporary, html, 'utf8')
+      await fs.promises.rename(temporary, reportFile)
+    } finally {
+      await fs.promises.rm(temporary, { force: true }).catch(() => undefined)
+    }
+    if (data.sessions.length > 0) {
+      writeRunSnapshot(reportDir, data)
+      pruneCache(reportDir, collected.sessions)
+    }
 
     latest = { html, data, at: Date.now() }
     return { data, html, filePath: reportFile, elapsedMs: Date.now() - startedAt }
