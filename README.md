@@ -37,6 +37,17 @@ plugin_manager install_bundle  target = <path-to-repo>
 plugin_manager install_bundle  target = dsh-insights@1.0.0
 ```
 
+**从 GitHub 仓库安装**（无需发布）：
+
+```
+plugin_manager install_bundle  target = github:<owner>/dsh-insights
+plugin_manager install_bundle  target = github:<owner>/dsh-insights#v1.0.0   # 固定 tag / commit
+```
+
+也可以给完整的 git URL：`git+https://github.com/<owner>/dsh-insights.git`。
+
+本包是"零构建"的：`index.js` 与 `src/` 就是运行入口，没有 `prepare`/`build` 脚本，所以 git 安装不需要打包产物；`files` 白名单会把 `test/`、`dev/` 排除，安装时只拉运行文件。git 安装的版本兼容检查发生在拉取之后，本包不声明 `engines.dsh` 或 DSH peer，因此不会触发兼容拒绝；失败时插件管理器会回滚 profile 的 `package.json` 与 lockfile。
+
 **手动安装**（不推荐，仅说明 install_bundle 做了什么）：
 
 ```json
