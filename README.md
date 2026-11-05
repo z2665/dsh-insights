@@ -1,12 +1,10 @@
 # DSH Insights
 
-<img src="icon.png" alt="DSH Insights" width="140" align="left" hspace="16" vspace="4">
+![DSH Insights](icon.png)
 
 把 `/insights` 带进 DeepSeek Harness：读取本机 `~/.dsh/sessions` 里的会话日志，生成一份交互式 HTML 报告，回答三个问题——**时间花在哪、哪里卡住、下次怎么少说一遍**。
 
 报告完全本地生成，不上传代码，零外部依赖。
-
-<br clear="left">
 
 ## 它产出什么
 
