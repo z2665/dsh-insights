@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "DSH Insights",
+    "description": "Reads the local session history and generates an interactive report on activity, tool usage, friction points, repeated instructions and AGENTS.md suggestions."
+  }
+}

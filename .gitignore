@@ -1,0 +1,7 @@
+node_modules/
+dev/.data/
+dev/report.html
+dev/*.png
+*.log
+.DS_Store
+Thumbs.db

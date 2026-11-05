@@ -1,0 +1,12 @@
+# dsh-insights — 会话洞察报告
+#
+# 读取本机 ~/.dsh/sessions 下的会话日志，生成交互式 HTML 报告：
+# 活动统计、工具使用、摩擦点、重复指令与 AGENTS.md 建议。
+- insert:
+    - id: dsh-insights
+      name: dsh-insights
+      config:
+        days: 30
+        maxSessions: 60
+        useModel: true
+        concurrency: 3

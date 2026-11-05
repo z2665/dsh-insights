@@ -1,0 +1,42 @@
+{
+  "name": "dsh-insights",
+  "version": "1.0.0",
+  "description": "DSH 会话洞察：分析本地会话历史，生成工作习惯报告、摩擦点与 AGENTS.md 建议",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "src/*.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check index.js && node --check src/collect.js && node --check src/signals.js && node --check src/llm.js && node --check src/insights.js && node --check src/report.js && node --check src/zstd.js"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "insights",
+    "session-analysis",
+    "agents-md"
+  ],
+  "engines": {
+    "node": ">=22.15"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "license": "MIT"
+}
