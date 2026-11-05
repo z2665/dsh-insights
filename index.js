@@ -18,7 +18,6 @@ const DEFAULTS = {
   days: 30,
   maxSessions: 60,
   concurrency: 3,
-  useModel: true,
   reportDir: null,
 }
 
@@ -44,7 +43,6 @@ function resolveOptions(config) {
       Number.isFinite(maxSessions) && maxSessions > 0 ? Math.min(400, Math.round(maxSessions)) : DEFAULTS.maxSessions,
     concurrency:
       Number.isFinite(concurrency) && concurrency > 0 ? Math.min(8, Math.round(concurrency)) : DEFAULTS.concurrency,
-    useModel: input.useModel !== false,
     reportDir: typeof input.reportDir === 'string' && input.reportDir ? input.reportDir : DEFAULTS.reportDir,
     model:
       model && typeof model.provider === 'string' && typeof model.model === 'string'
@@ -130,7 +128,7 @@ function resolveModel(ctx, options) {
       return { provider: selection.provider, model: selection.model }
     }
   } catch {
-    // fall through: model enrichment is optional
+    // no default model is configured
   }
   return null
 }
@@ -143,8 +141,7 @@ function parseCommandInput(raw) {
     .filter(Boolean)
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index]
-    if (token === '--no-llm' || token === '--no-model') parsed.useModel = false
-    else if (token === '--refresh') parsed.refresh = true
+    if (token === '--refresh') parsed.refresh = true
     else if (token === '--project') parsed.project = tokens[(index += 1)]
     else if (/^\d{1,3}$/.test(token)) parsed.days = Number(token)
   }
@@ -159,9 +156,7 @@ function formatCommandText(data, url, filePath) {
     top.length ? `最值得修的：${top.join('、')}` : null,
     url ? `在浏览器打开：${url}` : null,
     `报告文件：${filePath}`,
-    data.llm.used
-      ? `模型分析：新增 ${data.llm.analyzed} 个、缓存 ${data.llm.cached} 个${data.llm.failed ? `、失败 ${data.llm.failed} 个` : ''}。`
-      : '本次为规则模式（未调用模型）。',
+    `模型分析：新增 ${data.llm.analyzed} 个、缓存 ${data.llm.cached} 个${data.llm.failed ? `、失败 ${data.llm.failed} 个` : ''}。`,
   ].filter(Boolean)
   return lines.join('\n')
 }
@@ -173,9 +168,7 @@ function toolText(value) {
     value.frictions?.length ? `主要摩擦：${value.frictions.join('、')}` : null,
     value.url ? `打开：${value.url}` : null,
     `文件：${value.reportPath}`,
-    value.llm
-      ? `模型：新增 ${value.llm.analyzed}，缓存 ${value.llm.cached}${value.llm.failed ? `，失败 ${value.llm.failed}` : ''}`
-      : '规则模式（未调用模型）。',
+    `模型：新增 ${value.llm.analyzed}，缓存 ${value.llm.cached}${value.llm.failed ? `，失败 ${value.llm.failed}` : ''}`,
   ]
   return lines.filter(Boolean).join('\n')
 }
@@ -201,7 +194,6 @@ export function apply(ctx, config) {
   async function execute(request = {}) {
     const startedAt = Date.now()
     const days = Number.isFinite(request.days) && request.days > 0 ? Math.min(365, Math.round(request.days)) : options.days
-    const useModel = request.useModel === false ? false : options.useModel
     const collected = collectSessions({
       dshHome: home,
       days,
@@ -210,7 +202,10 @@ export function apply(ctx, config) {
     })
 
     const model = resolveModel(ctx, options)
-    const llm = useModel && model ? ctx.get('llm') : undefined
+    const llm = model ? ctx.get('llm') : undefined
+    if (!model || !llm) {
+      throw new Error('DSH Insights 需要模型：请先在 DSH 里选择一个默认模型，然后在配置里指定 model 或重试。')
+    }
 
     const data = await generateInsightData({
       sessions: collected.sessions,
@@ -276,11 +271,6 @@ export function apply(ctx, config) {
           type: 'string',
           description: 'Only include sessions whose project name, cwd or title contains this text.',
         },
-        use_model: {
-          type: 'boolean',
-          description:
-            'Call the configured model to summarize each transcript. Set false for a fast, deterministic report.',
-        },
         refresh: {
           type: 'boolean',
           description: 'Ignore cached per-session analyses and re-analyze every session.',
@@ -321,7 +311,6 @@ export function apply(ctx, config) {
         execute({
           days: input.days,
           project: input.project,
-          useModel: input.use_model,
           refresh: input.refresh === true,
         }),
       )
@@ -370,7 +359,7 @@ export function apply(ctx, config) {
     definitionId: 'dsh-insights/insights',
     name: 'insights',
     description: '分析最近的 DSH 会话，生成工作习惯洞察报告（活动、工具、摩擦点、AGENTS.md 建议）',
-    input: { hint: '[天数] [--project 名称] [--no-llm] [--refresh]' },
+    input: { hint: '[天数] [--project 名称] [--refresh]' },
     handler: async ({ rawInput, signal }) => {
       try {
         const parsed = parseCommandInput(rawInput)

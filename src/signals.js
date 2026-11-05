@@ -63,11 +63,6 @@ const GOAL_RULES = [
   ['代码理解', /(阅读|理解|分析|看看|梳理|review|understand|explore|分析一下)/i],
 ]
 
-const FEATURE_SIGNALS = {
-  subagent: /^(subagent|subagent_fork|workflow)$/,
-  backgroundJobs: null,
-}
-
 export function languageOf(filePath) {
   const lower = filePath.toLowerCase()
   const dot = lower.lastIndexOf('.')

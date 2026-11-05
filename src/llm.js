@@ -240,22 +240,7 @@ export async function generateFacets({
 }) {
   const facets = new Map()
   const stats = { analyzed: 0, cached: 0, failed: 0, usage: { input: 0, output: 0 } }
-  if (sessions.length === 0) return { facets, ...stats }
-
-  // Without a model we still reuse earlier analyses: a fast `/insights --no-llm`
-  // keeps the qualitative sections instead of dropping to heuristics only.
-  if (!llm) {
-    for (const session of sessions) {
-      if (refresh) break
-      const hash = hashOf(transcriptOf(session))
-      const cached = readCache(path.join(cacheDir, 'facets', `${session.id}.json`))
-      if (cached && cached.hash === hash && cached.facet) {
-        facets.set(session.id, cached.facet)
-        stats.cached += 1
-      }
-    }
-    return { facets, ...stats }
-  }
+  if (sessions.length === 0 || !llm) return { facets, ...stats }
 
   await mapLimited(sessions, concurrency, async (session) => {
     if (signal?.aborted) return
@@ -299,43 +284,6 @@ export async function generateFacets({
   })
 
   return { facets, ...stats }
-}
-
-function synthesisInput({ stats, sessions, facets, frictions, repeated, workflow }) {
-  const lines = []
-  lines.push(
-    `窗口：最近 ${stats.windowDays} 天｜会话 ${stats.sessions}｜用户消息 ${stats.humanMessages}｜` +
-      `工具调用 ${stats.toolCalls}（失败率 ${stats.errorRate}%）｜改动文件 ${stats.files}｜` +
-      `活跃天数 ${stats.activeDays}｜项目 ${stats.projects}`,
-  )
-  lines.push(`工具分布：${stats.tools.slice(0, 8).map((tool) => `${tool.name}×${tool.calls}`).join('、')}`)
-  if (stats.languages.length) lines.push(`涉及语言/文件类型：${stats.languages.slice(0, 6).map((item) => `${item.name}(${item.files})`).join('、')}`)
-  if (repeated.length) lines.push(`跨会话重复出现的指令：${repeated.map((item) => `「${clip(item.text, 40)}」×${item.sessions}`).join('；')}`)
-  if (frictions.length) {
-    lines.push(
-      `已识别的摩擦：${frictions
-        .slice(0, 6)
-        .map((item) => `${item.label}(${item.sessions} 个会话/${item.count} 次)`)
-        .join('、')}`,
-    )
-  }
-  lines.push(`工作流信号：${JSON.stringify(workflow)}`)
-  lines.push('会话清单：')
-  for (const session of sessions.slice(0, 40)) {
-    const facet = facets.get(session.id)
-    const head = facet
-      ? `[${facet.goal}/${facet.sessionType}/${facet.outcome}/满意度${facet.satisfaction}]`
-      : '[未分析]'
-    const frictionsText = facet?.frictions?.length
-      ? ` 摩擦：${facet.frictions.map((item) => item.detail).join('；')}`
-      : ''
-    lines.push(
-      `- ${head} ${clip(session.title || session.project, 40)}（${session.project}，${Math.round(
-        session.durationMs / 60_000,
-      )} 分钟，${session.humanMessages.length} 条消息）${facet?.summary ? `：${facet.summary}` : ''}${frictionsText}`,
-    )
-  }
-  return lines.join('\n')
 }
 
 const SUMMARY_SCHEMA = `只输出一个 JSON 对象：

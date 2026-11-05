@@ -113,11 +113,22 @@ function briefItem(kind, title, items, iconName) {
   </article>`
 }
 
+/**
+ * Keep a chart readable for any number of categories: the tail folds into one
+ * "other" slice instead of repeating palette colors.
+ */
+function collapse(items, limit) {
+  if (items.length <= limit) return items
+  const head = items.slice(0, limit - 1)
+  const rest = items.slice(limit - 1)
+  return [...head, { name: '其他', count: rest.reduce((total, item) => total + item.count, 0) }]
+}
+
 function barRows(items, { max, unit = '', errorKey = null } = {}) {
   if (!items.length) return '<p class="empty">暂无数据</p>'
   const peak = Math.max(...items.map((item) => item.count), 1)
   return `<ul class="bars">${items
-    .map((item, index) => {
+    .map((item) => {
       const share = Math.max(2, ((item.count / (max ?? peak)) * 100).toFixed(1))
       const error = errorKey && item[errorKey] ? `<span class="err-chip" title="${item[errorKey]} 次失败">×${item[errorKey]}</span>` : ''
       return `<li>
@@ -752,7 +763,7 @@ const CLIENT = `
   var root = document.documentElement;
   var tzSelect = document.getElementById('tz');
   var zone = DATA.timezone;
-  var zones = ['Asia/Shanghai', 'Asia/Tokyo', 'UTC', 'Europe/London', 'America/Los_Angeles'];
+  var zones = ['UTC', 'Asia/Shanghai', 'Asia/Tokyo', 'Asia/Singapore', 'Europe/London', 'Europe/Berlin', 'America/New_York', 'America/Chicago', 'America/Los_Angeles', 'Australia/Sydney'];
   if (zones.indexOf(zone) === -1) zones.unshift(zone);
   zones.forEach(function (item) {
     var option = document.createElement('option');
@@ -1016,11 +1027,7 @@ export function renderReport(data) {
   const generated = new Date(data.generatedAt).toLocaleString('zh-CN', { hour12: false })
   const deltas = isEmpty ? null : data.deltas ?? null
 
-  const llmLabel = data.llm.used
-    ? `${esc(data.llm.model ?? '默认模型')} · 新分析 ${data.llm.analyzed} / 缓存 ${data.llm.cached}${data.llm.failed ? ` / 失败 ${data.llm.failed}` : ''}`
-    : data.llm.cached
-      ? `复用 ${data.llm.cached} 个会话的历史分析（本次未调用模型）`
-      : '规则模式（未调用模型）'
+  const llmLabel = `${esc(data.llm.model ?? '默认模型')} · 新分析 ${data.llm.analyzed} / 缓存 ${data.llm.cached}${data.llm.failed ? ` / 失败 ${data.llm.failed}` : ''}`
 
   const kpis = [
     kpi('会话', num(stats.sessions), `最近 ${data.range.days} 天`, deltas ? deltaChip(deltas.sessions) : ''),
@@ -1045,8 +1052,12 @@ export function renderReport(data) {
   ].join('')
 
   const tools = stats.tools.slice(0, 8).map((tool) => ({ name: tool.name, count: tool.calls, errors: tool.errors }))
-  const languages = stats.languages.slice(0, 7)
-  const languageTotal = languages.reduce((sum, item) => sum + item.files, 0) || 1
+  const languages = collapse(
+    stats.languages.map((item) => ({ name: item.name, count: item.files })),
+    7,
+  )
+  const languageTotal = languages.reduce((sum, item) => sum + item.count, 0) || 1
+  const goalSlices = collapse(stats.goals, 8)
   const goalsTotal = stats.goals.reduce((sum, item) => sum + item.count, 0)
   const satisfaction = stats.satisfaction
   const satisfactionTotal = satisfaction ? satisfaction.distribution.reduce((sum, item) => sum + item.count, 0) : 0
@@ -1178,11 +1189,11 @@ export function renderReport(data) {
       </div>
       <div class="card card-pad span-5">
         <div class="card-head"><h3>文件类型</h3><span>${num(languageTotal)} 个文件</span></div>
-        ${stackedBar(languages.map((item) => ({ name: item.name, count: item.files })), languageTotal)}
+        ${stackedBar(languages, languageTotal)}
         <ul class="legend">${languages
           .map(
             (item, index) =>
-              `<li><i style="background:${PALETTE[index % PALETTE.length]}"></i><span>${esc(item.name)}</span><b>${num(item.files)}</b></li>`,
+              `<li><i style="background:${PALETTE[index % PALETTE.length]}"></i><span>${esc(item.name)}</span><b>${num(item.count)}</b></li>`,
           )
           .join('')}</ul>
       </div>
@@ -1195,7 +1206,7 @@ export function renderReport(data) {
     <div class="grid grid-12">
       <div class="card card-pad span-6">
         <div class="card-head"><h3>任务目标</h3><span>${num(goalsTotal)} 个会话</span></div>
-        ${donut(stats.goals, goalsTotal, '会话')}
+        ${donut(goalSlices, goalsTotal, '会话')}
       </div>
       <div class="card card-pad span-6">
         <div class="card-head"><h3>类型与感受</h3><span>${num(stats.sessions)} 个会话</span></div>
@@ -1207,8 +1218,7 @@ export function renderReport(data) {
           ${satisfactionBlock}
           <div class="fact">
             <h4>项目</h4>
-            <div class="chips">${stats.projectsList
-              .slice(0, 6)
+            <div class="chips">${collapse(stats.projectsList, 6)
               .map((item) => `<span class="chip">${esc(item.name)}<b>${item.count}</b></span>`)
               .join('')}</div>
           </div>
