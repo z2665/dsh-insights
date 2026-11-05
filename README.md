@@ -44,14 +44,14 @@ plugin_manager install_bundle  target = <path-to-repo>
 **从 npm 安装**（发布之后）：
 
 ```
-plugin_manager install_bundle  target = dsh-insights@1.2.0
+plugin_manager install_bundle  target = dsh-insights@1.2.1
 ```
 
 **从 GitHub 仓库安装**（无需发布）：
 
 ```
 plugin_manager install_bundle  target = github:z2665/dsh-insights
-plugin_manager install_bundle  target = github:z2665/dsh-insights#v1.2.0   # 固定 tag / commit
+plugin_manager install_bundle  target = github:z2665/dsh-insights#v1.2.1   # 固定 tag / commit
 ```
 
 也可以给完整的 git URL：`git+https://github.com/z2665/dsh-insights.git`。仓库是公开的，直接安装即可。

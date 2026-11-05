@@ -1,11 +1,13 @@
 {
   "name": "dsh-insights",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "DSH 会话洞察：分析本地会话历史，生成工作习惯报告、摩擦点与 AGENTS.md 建议",
   "type": "module",
   "main": "index.js",
+  "icon": "./icon.png",
   "exports": {
     ".": "./index.js",
+    "./package.json": "./package.json",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.png"
   },
